@@ -2,25 +2,30 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/charmbracelet/log"
+	"github.com/jomei/notionapi"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
-
-	"github.com/jomei/notionapi"
 )
 
 func main() {
 
 	notionKey := os.Getenv("NOTION_KEY")
 
-	log.Info("Notion key", "notionkey", notionKey)
+	db := flag.String("db", "", "Id of the db were are the pages to create")
+
+	folder := flag.String("folder", "./", "The folder were the pages will be created")
+
+	flag.Parse()
+
+	log.Debug("Notion key", "notionkey", notionKey)
 
 	client := notionapi.NewClient(notionapi.Token(notionKey))
 
-	md := NewMD(client, "266919f2772245a6b691217651ae0a17", "./blog/")
+	md := NewMDConverter(client, *db, *folder)
 
 	md.ConvertPagesFromDBToMd()
 
@@ -32,7 +37,7 @@ type markdown struct {
 	folderPath string
 }
 
-func NewMD(client *notionapi.Client, db, folderPath string) markdown {
+func NewMDConverter(client *notionapi.Client, db, folderPath string) markdown {
 
 	return markdown{
 		client,
@@ -159,8 +164,6 @@ func (md *markdown) ConvertPagesFromDBToMd() {
 
 	pagesCount := len(db.Results)
 
-	log.Info("PAGESCOUNT", "count", pagesCount)
-
 	wg.Add(pagesCount)
 
 	for _, page := range db.Results {
@@ -168,8 +171,6 @@ func (md *markdown) ConvertPagesFromDBToMd() {
 		go md.PageToMarkdown(page, &wg)
 
 	}
-
-	log.Info("Number of Goroutines:", "count", runtime.NumGoroutine())
 
 	wg.Wait()
 
