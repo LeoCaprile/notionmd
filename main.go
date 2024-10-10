@@ -87,7 +87,7 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 	fileName += ".md"
 
 	metadataMap := map[string]string{
-		"pubDateTime": page.CreatedTime.Format(time.RFC3339),
+		"pubDatetime": page.CreatedTime.Format(time.RFC3339),
 		"title":       title,
 		"postSlug":    fileName,
 		"description": desc,
