@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/charmbracelet/log"
 	"os"
 	"runtime"
 	"strings"
@@ -16,11 +16,11 @@ func main() {
 
 	notionKey := os.Getenv("NOTION_KEY")
 
-	fmt.Printf("%s \n", notionKey)
+	log.Info("Notion key", "notionkey", notionKey)
 
 	client := notionapi.NewClient(notionapi.Token(notionKey))
 
-	md := NewMD(client, "266919f2772245a6b691217651ae0a17", "./hey/")
+	md := NewMD(client, "266919f2772245a6b691217651ae0a17", "./blog/")
 
 	md.ConvertPagesFromDBToMd()
 
@@ -44,7 +44,7 @@ func NewMD(client *notionapi.Client, db, folderPath string) markdown {
 func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Println("Starting converting page: " + page.ID.String())
+	log.Info("Starting converting page: " + page.ID.String())
 
 	var fileName string
 	var title string
@@ -102,7 +102,6 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 				fileContent.WriteString("# " + h2.PlainText + "\n")
 			}
 			break
-
 		case *notionapi.Heading2Block:
 			for _, h2 := range blk.Heading2.RichText {
 				fileContent.WriteString("## " + h2.PlainText + "\n")
@@ -113,7 +112,6 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 				fileContent.WriteString("### " + h2.PlainText + "\n")
 			}
 			break
-
 		case *notionapi.ParagraphBlock:
 			for _, b := range blk.Paragraph.RichText {
 				if b.Annotations.Code {
@@ -137,18 +135,19 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 		log.Fatal(errFile)
 	}
 
-	fmt.Println("Done converting page: " + page.ID.String())
+	log.Info("Done converting page: " + page.ID.String())
 }
 
 func (md *markdown) ConvertPagesFromDBToMd() {
-	fmt.Println("STARTING CONVERTING PAGES MD")
+	log.Info("STARTING CONVERTING PAGES MD")
+
+	var wg sync.WaitGroup
 
 	dbquery := notionapi.DatabaseQueryRequest{
 		Filter: notionapi.PropertyFilter{
 			Property: "Publish",
 			Checkbox: &notionapi.CheckboxFilterCondition{Equals: true}},
 	}
-	var wg sync.WaitGroup
 
 	db, err := md.client.Database.Query(context.TODO(), notionapi.DatabaseID(md.db), &dbquery)
 
@@ -159,7 +158,9 @@ func (md *markdown) ConvertPagesFromDBToMd() {
 	os.Mkdir(md.folderPath, 0777)
 
 	pagesCount := len(db.Results)
-	fmt.Printf("PAGESCOUNT: %d", pagesCount)
+
+	log.Info("PAGESCOUNT", "count", pagesCount)
+
 	wg.Add(pagesCount)
 
 	for _, page := range db.Results {
@@ -168,10 +169,10 @@ func (md *markdown) ConvertPagesFromDBToMd() {
 
 	}
 
-	fmt.Println("Number of Goroutines:", runtime.NumGoroutine())
+	log.Info("Number of Goroutines:", "count", runtime.NumGoroutine())
 
 	wg.Wait()
 
-	fmt.Println("Finished")
+	log.Info("Finished")
 
 }
