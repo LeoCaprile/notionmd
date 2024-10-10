@@ -1,4 +1,4 @@
-module notion-blog-scrapper
+module github.com/LeoCaprile/notionmd
 
 go 1.23.1
 
