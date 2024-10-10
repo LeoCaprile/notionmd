@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -53,6 +54,8 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 
 	var fileName string
 	var title string
+	var desc string
+	var tags strings.Builder
 	var fileContent strings.Builder
 
 	fileName += page.ID.String() + "_"
@@ -60,10 +63,21 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 	for _, prop := range page.Properties {
 
 		switch prp := prop.(type) {
+
 		case *notionapi.TitleProperty:
 			for _, tlt := range prp.Title {
 				fileName += tlt.PlainText
 				title += tlt.PlainText
+			}
+
+		case *notionapi.RichTextProperty:
+			for _, d := range prp.RichText {
+				desc += d.PlainText
+			}
+
+		case *notionapi.MultiSelectProperty:
+			for _, t := range prp.MultiSelect {
+				tags.WriteString("  - " + t.Name + "\n")
 			}
 		}
 	}
@@ -73,15 +87,23 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 	fileName += ".md"
 
 	metadataMap := map[string]string{
-		"pubDateTime": page.CreatedTime.Format("YYYY-MM-DD"),
+		"pubDateTime": page.CreatedTime.Format(time.RFC3339),
 		"title":       title,
 		"postSlug":    fileName,
+		"description": desc,
+		"tags":        tags.String(),
 	}
 
 	fileContent.WriteString("---\n")
 
 	for k, v := range metadataMap {
-		fileContent.WriteString(k + ": " + v + "\n")
+
+		if k == "tags" {
+			fileContent.WriteString(k + ": \n" + v + "\n")
+		} else {
+			fileContent.WriteString(k + ": " + v + "\n")
+		}
+
 	}
 
 	fileContent.WriteString("---\n")
