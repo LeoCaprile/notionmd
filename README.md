@@ -33,6 +33,6 @@ Follow the steps:
 -  `git clone <this repo>`
 -  `cd notionmd`
 -  `go mod tidy`
--  `go run main.go -db`
+-  `go run main.go -db=<your db id to extract pages> -folder=<folder path where you want your pages converted if not provided create pages in current dir>`
 
 And you're done
