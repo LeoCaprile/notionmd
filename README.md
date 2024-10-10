@@ -21,7 +21,7 @@
   - Divider
   - Table
 
-## Installalation
+## Installation
 
 You need to export your notion integration key as 'NOTION_KEY'
 Usually for unix users to add the env use the following example:
