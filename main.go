@@ -26,7 +26,7 @@ func main() {
 
 	client := notionapi.NewClient(notionapi.Token(notionKey))
 
-	md := NewMDConverter(client, *db, *folder)
+	md := NewNotionMDConverter(client, *db, *folder)
 
 	md.ConvertPagesFromDBToMd()
 
@@ -38,13 +38,66 @@ type markdown struct {
 	folderPath string
 }
 
-func NewMDConverter(client *notionapi.Client, db, folderPath string) markdown {
+func NewNotionMDConverter(client *notionapi.Client, db, folderPath string) markdown {
 
 	return markdown{
 		client,
 		db,
 		folderPath,
 	}
+}
+
+func BlockToMarkdown(block notionapi.Block) string {
+
+	var blockContent strings.Builder
+
+	switch blk := block.(type) {
+
+	case *notionapi.CodeBlock:
+		blockContent.WriteString("```" + blk.Code.Language + "\n")
+		for _, code := range blk.Code.RichText {
+			blockContent.WriteString(code.Text.Content)
+		}
+		blockContent.WriteString("\n ``` \n")
+		break
+	case *notionapi.Heading1Block:
+		for _, h2 := range blk.Heading1.RichText {
+			blockContent.WriteString("# " + h2.PlainText + "\n")
+		}
+		break
+	case *notionapi.Heading2Block:
+		for _, h2 := range blk.Heading2.RichText {
+			blockContent.WriteString("## " + h2.PlainText + "\n")
+		}
+		break
+	case *notionapi.Heading3Block:
+		for _, h2 := range blk.Heading3.RichText {
+			blockContent.WriteString("### " + h2.PlainText + "\n")
+		}
+		break
+	case *notionapi.ParagraphBlock:
+		for _, b := range blk.Paragraph.RichText {
+			if b.Annotations.Code {
+				blockContent.WriteString("`" + b.Text.Content + "`")
+			} else {
+				blockContent.WriteString(b.Text.Content)
+			}
+		}
+
+		blockContent.WriteString("\n")
+
+		break
+	case *notionapi.BulletedListItemBlock:
+		for _, b := range blk.BulletedListItem.RichText {
+			blockContent.WriteString("- " + b.PlainText + "\n")
+		}
+		break
+	default:
+		log.Warn("Unkown block type", "block", fmt.Sprintf("%T\n", blk))
+	}
+
+	return blockContent.String()
+
 }
 
 func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
@@ -115,45 +168,8 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 	}
 
 	for _, block := range blocks.Results {
-		switch blk := block.(type) {
-
-		case *notionapi.CodeBlock:
-			fileContent.WriteString("```" + blk.Code.Language + "\n")
-			for _, code := range blk.Code.RichText {
-				fileContent.WriteString(code.Text.Content)
-			}
-			fileContent.WriteString("\n ``` \n")
-			break
-		case *notionapi.Heading1Block:
-			for _, h2 := range blk.Heading1.RichText {
-				fileContent.WriteString("# " + h2.PlainText + "\n")
-			}
-			break
-		case *notionapi.Heading2Block:
-			for _, h2 := range blk.Heading2.RichText {
-				fileContent.WriteString("## " + h2.PlainText + "\n")
-			}
-			break
-		case *notionapi.Heading3Block:
-			for _, h2 := range blk.Heading3.RichText {
-				fileContent.WriteString("### " + h2.PlainText + "\n")
-			}
-			break
-		case *notionapi.ParagraphBlock:
-			for _, b := range blk.Paragraph.RichText {
-				if b.Annotations.Code {
-					fileContent.WriteString("`" + b.Text.Content + "`")
-				} else {
-					fileContent.WriteString(b.Text.Content)
-				}
-			}
-
-			fileContent.WriteString("\n")
-
-			break
-		default:
-			fmt.Printf("%T\n", blk)
-		}
+		stringBlock := BlockToMarkdown(block)
+		fileContent.WriteString(stringBlock)
 	}
 
 	errFile := os.WriteFile(md.folderPath+fileName, []byte(fileContent.String()), 0666)
