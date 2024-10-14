@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
+
 	"github.com/charmbracelet/log"
 	"github.com/jomei/notionapi"
 	"os"
@@ -47,69 +47,11 @@ func NewNotionMDConverter(client *notionapi.Client, db, folderPath string) markd
 	}
 }
 
-func BlockToMarkdown(block notionapi.Block) string {
-
-	var blockContent strings.Builder
-
-	switch blk := block.(type) {
-
-	case *notionapi.CodeBlock:
-		blockContent.WriteString("```" + blk.Code.Language + "\n")
-		for _, code := range blk.Code.RichText {
-			blockContent.WriteString(code.Text.Content)
-		}
-		blockContent.WriteString("\n ``` \n")
-		break
-	case *notionapi.Heading1Block:
-		for _, h2 := range blk.Heading1.RichText {
-			blockContent.WriteString("# " + h2.PlainText + "\n")
-		}
-		break
-	case *notionapi.Heading2Block:
-		for _, h2 := range blk.Heading2.RichText {
-			blockContent.WriteString("## " + h2.PlainText + "\n")
-		}
-		break
-	case *notionapi.Heading3Block:
-		for _, h2 := range blk.Heading3.RichText {
-			blockContent.WriteString("### " + h2.PlainText + "\n")
-		}
-		break
-	case *notionapi.ParagraphBlock:
-		for _, b := range blk.Paragraph.RichText {
-			if b.Annotations.Code {
-				blockContent.WriteString("`" + b.Text.Content + "`")
-			} else {
-				blockContent.WriteString(b.Text.Content)
-			}
-		}
-
-		blockContent.WriteString("\n")
-
-		break
-	case *notionapi.BulletedListItemBlock:
-		for _, b := range blk.BulletedListItem.RichText {
-			blockContent.WriteString("- " + b.PlainText + "\n")
-		}
-		break
-	default:
-		log.Warn("Unkown block type", "block", fmt.Sprintf("%T\n", blk))
-	}
-
-	return blockContent.String()
-
-}
-
-func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	log.Info("Starting converting page: " + page.ID.String())
-
+func GetMetadata(page notionapi.Page) map[string]string {
 	var fileName string
 	var title string
 	var desc string
 	var tags strings.Builder
-	var fileContent strings.Builder
 
 	fileName += page.ID.String() + "_"
 
@@ -147,6 +89,25 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 		"tags":        tags.String(),
 	}
 
+	return metadataMap
+
+}
+
+func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	var fileContent strings.Builder
+
+	blocks, err := md.client.Block.GetChildren(context.TODO(), notionapi.BlockID(page.ID), &notionapi.Pagination{})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Info("Starting converting page: " + page.ID.String())
+
+	metadataMap := GetMetadata(page)
+
 	fileContent.WriteString("---\n")
 
 	for k, v := range metadataMap {
@@ -161,18 +122,12 @@ func (md *markdown) PageToMarkdown(page notionapi.Page, wg *sync.WaitGroup) {
 
 	fileContent.WriteString("---\n")
 
-	blocks, err := md.client.Block.GetChildren(context.TODO(), notionapi.BlockID(page.ID), &notionapi.Pagination{})
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	for _, block := range blocks.Results {
 		stringBlock := BlockToMarkdown(block)
 		fileContent.WriteString(stringBlock)
 	}
 
-	errFile := os.WriteFile(md.folderPath+fileName, []byte(fileContent.String()), 0666)
+	errFile := os.WriteFile(md.folderPath+metadataMap["postSlug"], []byte(fileContent.String()), 0666)
 
 	if errFile != nil {
 		log.Fatal(errFile)
