@@ -104,3 +104,23 @@ func TestParagraphBlockWithCodeWithinMdParsing(t *testing.T) {
 
 	}
 }
+
+func TestCodeBlockMdParsing(t *testing.T) {
+
+	codeblock := &notionapi.CodeBlock{
+		Code: notionapi.Code{
+			Language: "mermaid",
+			RichText: []notionapi.RichText{{Text: &notionapi.Text{Content: "const variable = 'helloworld'"}}},
+		},
+	}
+
+	result := BlockToMarkdown(codeblock)
+
+	expected := "```mermaid\nconst variable = 'helloworld'\n ``` \n"
+
+	if result != expected {
+
+		t.Fatalf("expected '%v', got %v", expected, result)
+
+	}
+}
